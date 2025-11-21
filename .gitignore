@@ -1,0 +1,17 @@
+# Python Build Outputs and Cache
+__pycache__/
+*.pyc
+*.pyo
+
+# Virtual Environments (CRITICAL: Includes .venv and venv)
+.venv
+venv/
+/env
+
+# Secrets and Configuration (CRITICAL SECURITY)
+.env
+
+# Dependencies/Build Folders
+/dist
+/build
+*.egg-info/
