@@ -9,56 +9,74 @@ from typing import Optional, List
 
 class BaseRequest(BaseModel):
     # This ID will be used to track the conversation in app/core/memory.py
-    session_id: Optional[str] = None 
+    session_id: Optional[str]
+
 
 class IdeaRequest(BaseRequest):
     topic: str
-    audience: Optional[str] = "General Audience"
-
-class ScriptRequest(BaseRequest):
-    title: str                 # "Space Cats"
-    tone: Optional[str] = "Fun"
-    target_duration: Optional[int] = 60
-
-
-class SceneRequest(BaseRequest):
-    script_segment: str     # Required: "The astronaut floats in the void, looking at earth."
-    art_style: Optional[str] = "Cinematic" # Optional: "Anime", "Oil Painting", "Cyberpunk"
-
-class DialogueRequest(BaseRequest):
-    characters: List[str]   # ["Alice", "Bob"]
-    context: str            # "Alice discovers Bob ate the last slice of pizza."
-    style: Optional[str] = "Natural"
-
-
-# OUTPUT helper
-class DialogueLine(BaseModel):
-    character_name: str
-    text: str
-    emotion: Optional[str] = "Neutral"
-
-# OUTPUT
-class DialogueResponse(BaseModel):
-    dialogue: List[DialogueLine]
+    feedback: Optional[str]
+    current_premise: Optional[str]
 
 class IdeaItem(BaseModel):
-    title: str          # "Space Pizza Party"
-    description: str    # "A comedy about an astronaut ordering delivery to Mars."
+    title: str
+    idea: str
 
 class IdeaResponse(BaseModel):
     ideas: List[IdeaItem]
 
-class ScriptSection(BaseModel):
-    heading: str    # "Intro", "Scene 1", "Climax"
-    content: str    # The actual narration/dialogue text for this part
-
-class ScriptResponse(BaseModel):
+class BeatRequest(BaseRequest):
     title: str
-    full_script: str                # The whole thing combined (for easy copy-paste)
-    sections: List[ScriptSection]   # Broken down parts
-    characters_detected: List[str]  # ["Alice", "Bob"] - Auto-extracted for next step
+    idea: str
+    feedback: Optional[str]
+    current_beats: Optional[List[str]]
+
+class BeatResponse(BaseModel):
+    beats: List[str]
+
+class StructureModel(BaseModel):
+    hook: str
+    mid: str
+    end: str
+
+class StructureRequest(BaseRequest):
+    title: str
+    beats: str
+    feedback: Optional[str]
+    current_structure: Optional[StructureModel] = None
+    
+class StructureResponse(BaseModel):
+    structure: StructureModel
+
+class SceneRequest(BaseRequest):
+    title: str
+    structre_segment: str
+    previous_context: Optional[str] = None
+    feedback: Optional[str]
+    current_scenes: Optional[str]
 
 class SceneResponse(BaseModel):
-    image_prompt: str          # "Cinematic wide shot of a cat in a space suit, 8k, nebula background"
-    art_style: str             # "Pixar 3D" (Just to confirm the style used)
-    negative_prompt: Optional[str] = None # "blurry, distorted, text, watermark" (Useful for local models)
+    scenes: List[str]
+    
+class DialogueLine(BaseModel):
+    character: str
+    text: str
+    parenthetical: Optional[str] = None # e.g. (whispering)
+
+class DialogueRequest(BaseRequest):
+    # INPUT: The text of the ONE scene you are processing
+    scene_content: str 
+    
+    # INPUT: Who is in this scene? (Helps the AI assign lines)
+    characters: List[str]
+    
+    # CONTEXT: What was said in the previous scene? (Crucial for flow)
+    previous_dialogue: Optional[str] = None
+    
+    # REFINEMENT:
+    feedback: Optional[str] = None
+    # If you are editing existing lines
+    current_dialogue: Optional[List[DialogueLine]] = None
+
+class DialogueResponse(BaseModel):
+    # If this list is empty [], it means the scene is silent/action-only.
+    dialogue: List[DialogueLine]
