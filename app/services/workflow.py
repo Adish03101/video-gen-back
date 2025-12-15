@@ -1,5 +1,5 @@
 from langgraph.graph import StateGraph, END
-from langgraph.memory import MemorySaver
+from langgraph.checkpoint.memory import MemorySaver
 from app.services.node import idea_node, beat_node, structure_node, scene_node, dialogue_node
 from app.core.model import StoryState
 
@@ -24,4 +24,13 @@ workflow.add_edge("generate_dialogue", END)
 
 # Compile with Memory
 memory = MemorySaver()
-app = workflow.compile(checkpointer=memory)
+app = workflow.compile(
+    checkpointer=memory,
+    interrupt_after=[
+        "generate_ideas", 
+        "generate_beats", 
+        "organize_structure", 
+        "generate_scenes",
+        "generate_dialogue"
+    ]
+)
