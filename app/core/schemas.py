@@ -4,12 +4,12 @@
 #schema
 
 from pydantic import BaseModel
-from typing import Optional, List
+from typing import Optional, List, Dict, Any
 
 
 class BaseRequest(BaseModel):
     # This ID will be used to track the conversation in app/core/memory.py
-    session_id: Optional[str]
+    session_id: Optional[str] = None
 
 
 
@@ -53,6 +53,7 @@ class StructureResponse(BaseModel):
 class SceneRequest(BaseRequest):
     title: str
     structure_segment: str
+    current_section_name: str
     previous_context: Optional[str] = None
     feedback: Optional[str]
     current_scenes: Optional[List[str]]
@@ -78,3 +79,8 @@ class DialogueRequest(BaseRequest):
 class DialogueResponse(BaseModel):
     # If this list is empty [], it means the scene is silent/action-only.
     dialogue: List[DialogueLine]
+
+class SaveProjectRequest(BaseModel):
+    project_id: Optional[int] = None
+    title: str
+    story_data: Dict[str, Any]

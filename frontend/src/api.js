@@ -1,35 +1,41 @@
-const API_BASE = "http://localhost:8000/api/v1"; 
+// src/api.js
 
-// Helper to manage a fake session ID for the browser
-const getSessionId = () => {
-  let id = localStorage.getItem("story_session_id");
-  if (!id) {
-    id = "sess_" + Math.random().toString(36).substr(2, 9);
-    localStorage.setItem("story_session_id", id);
-  }
-  return id;
-};
+const API_BASE = "http://localhost:8000/api/v1";
 
+// Generic Helper
 export const apiCall = async (endpoint, payload) => {
   try {
     const response = await fetch(`${API_BASE}${endpoint}`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        session_id: getSessionId(),
-        ...payload
-      }),
+      body: JSON.stringify(payload),
     });
-
-    if (!response.ok) {
-      const err = await response.json();
-      throw new Error(err.detail || "API Error");
-    }
-
+    if (!response.ok) throw new Error("API Error");
     return await response.json();
-  } catch (error) {
-    console.error("API Request Failed:", error);
-    alert(`Error: ${error.message}`);
+  } catch (err) {
+    console.error(err);
+    alert("Error connecting to AI. Check console.");
     return null;
   }
+};
+
+// --- NEW DB FUNCTIONS ---
+
+export const fetchProjects = async () => {
+  const res = await fetch(`${API_BASE}/projects`);
+  return await res.json();
+};
+
+export const fetchProjectDetails = async (id) => {
+  const res = await fetch(`${API_BASE}/projects/${id}`);
+  return await res.json();
+};
+
+export const saveProjectToDB = async (payload) => {
+  const res = await fetch(`${API_BASE}/projects/save`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  return await res.json();
 };

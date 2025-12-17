@@ -109,55 +109,72 @@ def scene_node(state: StoryState):
     llm = get_llm_provider("scene")
     feedback = state.get('feedback')
     selected = state.get('selected_idea', {})
-
+    
+    # 1. GET INPUTS
     section_name = state.get('current_section_name', 'hook').lower()
     
-    segment_beats = state['structure'].get(section_name, [])
-    segment_str = "\n".join(segment_beats)
+    # This is now guaranteed to be a LIST because main.py prepared it
+    beats_list = state['structure'].get(section_name, [])
     
-    previous_scenes = state.get('all_scenes', [])
+    # 2. PREPARE CONTEXT
+    # If main.py sent an override (from frontend), use it. Otherwise, build from memory.
+    if state.get("previous_context_override"):
+        running_context_str = state.get("previous_context_override")
+    else:
+        # Build context from previous sections (e.g. Hook scenes if doing Mid)
+        current_buckets = state.get('scenes_by_section', {})
+        context_list = []
+        for sec in ['hook', 'mid', 'end']:
+            if sec == section_name: break
+            context_list.extend(current_buckets.get(sec, []))
+        running_context_str = "\n".join(context_list) if context_list else "Start of story."
 
-    current_buckets = state.get('scenes_by_section', {})
-    
-    context_list = []
-    for sec in ['hook', 'mid', 'end']:
-        if sec == section_name:
-            break
-        context_list.extend(current_buckets.get(sec, []))
-    
-    context_str = "\n".join(context_list) if context_list else "None, start of story."
-    
+    generated_scenes_this_section = []
 
-    prompt_vars = {
-        "title": selected.get('title', 'Untitled'),
-        "structure_segment": segment_str, # The beats to adapt
-        "previous_context": context_str,  # What happened before
+    # 3. THE LOOP: Beat -> Scenes -> Update Context -> Next Beat
+    for i, beat in enumerate(beats_list):
+        prompt_vars = {
+            "title": selected.get('title', 'Untitled'),
+            "beat": beat,  # <--- Processing ONE beat
+            "previous_context": running_context_str, # <--- Grows with every loop
+            
+            # Only apply feedback to the first beat to prevent repetition loops
+            "feedback_instruction": f"USER FEEDBACK: {feedback}" if (feedback and i == 0) else "",
+            "context_instruction": "" 
+        }
+
+        prompt_messages = format_prompt("scene", prompt_vars)
         
-        "feedback_instruction": f"USER FEEDBACK: {feedback}" if feedback else "",
-        "context_instruction": "" 
-    }
+        raw_response = llm.generate(
+            system_prompt=prompt_messages["system"],
+            user_prompt=prompt_messages["user"]
+        )
+        
+        new_batch_scenes = raw_response.get("scenes", [])
+        
+        # Append for final output
+        generated_scenes_this_section.extend(new_batch_scenes)
+        
+        # CRITICAL: Add these new scenes to the context for the NEXT beat
+        if new_batch_scenes:
+            # We add just the last scene to keep context length manageable, 
+            # or add all if you have a large context window.
+            running_context_str += "\n" + new_batch_scenes[-1]
 
-    prompt_messages = format_prompt("scene", prompt_vars)
+    # 4. SAVE & RETURN
+    # We update the bucket for this specific section
+    updated_buckets = state.get('scenes_by_section', {}).copy()
+    updated_buckets[section_name] = generated_scenes_this_section
     
-    raw_response = llm.generate(
-        system_prompt=prompt_messages["system"],
-        user_prompt=prompt_messages["user"]
-    )
-    
-    new_scenes = raw_response.get("scenes", [])
-    
-    # 6. UPDATE STATE (Cumulative Append)
-    # We add the new scenes to our Master List.
-    # NOTE: In a perfect world, if editing, you'd replace the old ones. 
-    # For now, we append to keep it simple.
-    updated_buckets = current_buckets.copy()
-    updated_buckets[section_name] = new_scenes
+    # Rebuild the master 'all_scenes' list in order
     updated_all_scenes = []
     for sec in ['hook', 'mid', 'end']:
         updated_all_scenes.extend(updated_buckets.get(sec, []))
+
     return {
+        "scenes_by_section": updated_buckets,
         "all_scenes": updated_all_scenes,
-        "scenes": new_scenes, # We also return just this batch for the frontend to see
+        "scenes": generated_scenes_this_section, 
         "feedback": None
     }
 
